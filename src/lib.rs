@@ -7,6 +7,7 @@ mod service;
 #[cfg(test)]
 mod tests {
 
+    use serde::Serialize;
     use tokio::test;
 
     use super::{
@@ -18,7 +19,12 @@ mod tests {
     async fn test() {
         let mut concrete_log_parser = ConcreteLogParser::new();
         let mut log_parser_service = LogParser::new(&mut concrete_log_parser);
-        log_parser_service.parse_file().await;
+        if let Ok(value) = log_parser_service.parse_file().await {
+            println!("{}", value);
+        } else {
+            println!("Error Parsing Log File");
+        }
+        
     }
 
 }
