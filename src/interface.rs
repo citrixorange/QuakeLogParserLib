@@ -1,8 +1,21 @@
 use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
+use serde::{Serialize, Deserialize};
 
 use crate::errors::LogParserError;
+
+pub enum CallbackType {
+    Success,
+    Warning,
+    Error
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct CallbackPayload {
+    pub error: Option<&'static str>,
+    pub data: Option<String>
+}
 
 pub type LogParserCallBack = dyn Fn(Option<Value>) -> Pin<Box<dyn Future<Output = Result<(), LogParserError>> + Send + Sync >> + Send + Sync;
 

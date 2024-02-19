@@ -7,7 +7,7 @@ use std::collections::{HashMap, HashSet};
 use regex::Regex;
 use once_cell::sync::Lazy;
 
-use crate::interface::{ILogParser, LogParserCallBack};
+use crate::interface::{ILogParser, LogParserCallBack, CallbackType, CallbackPayload};
 use crate::errors::LogParserError;
 
 static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bInitGame\b"#).unwrap() });
@@ -93,12 +93,6 @@ struct MatchData {
     kills: HashMap<String, i32>,
 }
 
-#[derive(Serialize, Deserialize)]
-struct WarningCallbackPayload {
-    error: &'static str,
-    line: String,
-}
-
 pub struct ConcreteLogParser {
     success_callback: Option<Box<LogParserCallBack>>,
     warning_callback: Option<Box<LogParserCallBack>>,
@@ -124,7 +118,53 @@ impl ConcreteLogParser {
         }
     }
 
-    fn parse_log_line(&mut self, line: &str) -> Result<(), LogParserError> {
+    async fn handle_callback(&self, cb_type: CallbackType, error: Option<LogParserError>, data: Option<String>) {
+        
+        match cb_type {
+            CallbackType::Success => {
+                if let Some(cb) = &self.success_callback {
+
+                    let payload = CallbackPayload {
+                        error: None,
+                        data: data
+                    }; 
+        
+                    if let Ok(pl) = serde_json::to_value(payload) {
+                        let _res = cb(Some(pl)).await;
+                    }
+                }
+            },
+            CallbackType::Warning => {
+                if let Some(cb) = &self.warning_callback {
+
+                    let payload = CallbackPayload {
+                        error: Some(error.unwrap().into()),
+                        data: data
+                    }; 
+        
+                    if let Ok(pl) = serde_json::to_value(payload) {
+                        let _res = cb(Some(pl)).await;
+                    }
+                }
+            },
+            CallbackType::Error => {
+                if let Some(cb) = &self.error_callback {
+
+                    let payload = CallbackPayload {
+                        error: Some(error.unwrap().into()),
+                        data: data
+                    }; 
+        
+                    if let Ok(pl) = serde_json::to_value(payload) {
+                        let _res = cb(Some(pl)).await;
+                    }
+                }
+            }
+        }
+        
+    }
+
+    async fn parse_log_line(&mut self, line: &str) -> Result<(), LogParserError> {
 
         match LogEvent::detect_line_log_event(line)? {
 
@@ -163,6 +203,13 @@ impl ConcreteLogParser {
 
                     return Ok(());
                 } else {
+
+                    self.handle_callback(
+                        CallbackType::Warning,
+                          Some(LogParserError::RegexParserError),
+                           Some(String::from(line))
+                     ).await;
+
                     return Err(LogParserError::RegexParserError);
                 }
             },
@@ -196,8 +243,13 @@ impl ConcreteLogParser {
 
                     return Ok(());
                 } else {
-                    println!("{}", line);
-                    println!("error");
+                    
+                    self.handle_callback(
+                       CallbackType::Warning,
+                         Some(LogParserError::RegexParserError),
+                          Some(String::from(line))
+                    ).await;
+
                     return Err(LogParserError::RegexParserError);
                 }
             },
@@ -237,21 +289,23 @@ impl ILogParser for ConcreteLogParser {
                 
                 let line = line.map_err(|_e| LogParserError::ReadFileError)?;
                 
-                if let Err(err) = self.parse_log_line(&line) {
-                    if let Some(warning_cb) = &self.warning_callback {
-                        
-                        let warning_payload = WarningCallbackPayload {
-                            error: err.into(),
-                            line: line
-                        }; 
-                        
-                        warning_cb(Some(serde_json::to_value(warning_payload).unwrap()));
-                    }
+                if let Err(err) = self.parse_log_line(&line).await {
+                    self.handle_callback(
+                CallbackType::Warning,
+                  Some(err), 
+                   Some(line)
+                    ).await;
                 }
             }
 
             let parsed_data = serde_json::to_value(&self.matches_data).map_err(|_e| LogParserError::SerializationError)?; 
             let stringfied_json = serde_json::to_string(&parsed_data).map_err(|_e| LogParserError::StringfyError)?;
+
+            self.handle_callback(
+                CallbackType::Success,
+                  None,
+                   Some(stringfied_json.clone())
+             ).await;
 
             return Ok(stringfied_json)
         };
