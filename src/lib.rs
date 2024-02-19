@@ -7,7 +7,6 @@ mod service;
 #[cfg(test)]
 mod tests {
 
-    use serde::Serialize;
     use tokio::test;
 
     use super::{

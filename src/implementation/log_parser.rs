@@ -230,12 +230,12 @@ impl ILogParser for ConcreteLogParser {
 
     fn parse_file(&mut self) -> Pin<Box<dyn Future<Output = Result<String, LogParserError>> + '_>> {
         let future = async {
-            let input = std::fs::File::open("sample_log.log")?;
+            let input = std::fs::File::open("sample_log.log").map_err(|_e| LogParserError::ReadFileError)?;
             let reader = io::BufReader::new(input);
         
             for line in reader.lines() {
                 
-                let line = line?;
+                let line = line.map_err(|_e| LogParserError::ReadFileError)?;
                 
                 if let Err(err) = self.parse_log_line(&line) {
                     if let Some(warning_cb) = &self.warning_callback {
@@ -250,15 +250,10 @@ impl ILogParser for ConcreteLogParser {
                 }
             }
 
-            if let Ok(parsed_data) = serde_json::to_value(&self.matches_data) {
-                if let Ok(stringfy_json) = serde_json::to_string(&parsed_data) {
-                    return Ok(stringfy_json); 
-                } else {
-                    return Err(LogParserError::UnexpectedError);
-                }
-            } else {
-                return Err(LogParserError::UnexpectedError);
-            }
+            let parsed_data = serde_json::to_value(&self.matches_data).map_err(|_e| LogParserError::SerializationError)?; 
+            let stringfied_json = serde_json::to_string(&parsed_data).map_err(|_e| LogParserError::StringfyError)?;
+
+            return Ok(stringfied_json)
         };
 
         return Box::pin(future);
