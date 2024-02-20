@@ -1,26 +1,27 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::io::{self, BufRead};
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use serde_json::{json, Map, Value};
+use serde::{Serialize, Serializer};
+use serde_json::{json};
 use std::collections::{HashMap, HashSet};
 use regex::Regex;
 use once_cell::sync::Lazy;
 
 use crate::interface::{ILogParser, LogParserCallBack, CallbackType, CallbackPayload};
 use crate::errors::LogParserError;
+use crate::config::config::{CONFIG, ConfigParameter};
 
-static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bInitGame\b"#).unwrap() });
-static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bClientConnect\b"#).unwrap() });
-static CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bClientUserinfoChanged\b"#).unwrap() });
-static CLIENT_BEGIN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bClientBegin\b"#).unwrap() });
-static CLIENT_DISCONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bClientDisconnect\b"#).unwrap() });
-static ITEM_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bItem\b"#).unwrap() });
-static KILL_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bKill\b"#).unwrap() });
-static SHUTDOWN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bShutdownGame\b"#).unwrap() });
-static EXIT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"\bExit\b"#).unwrap() });
-static KILL_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"(\d+|\d+\d+):(\d+|\d+\d+) Kill: \d+ \d+ \d+: ([a-zA-Z0-9\s\p{P}<>]*) killed ([a-zA-Z0-9\s\p{P}<>]*) by (\w+)"#).unwrap() });
-static USER_INFO_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(r#"n\\([^\\]+)\\"#).unwrap() });
+static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(&CONFIG.get_parameter(ConfigParameter::InitGameEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientConnectEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientInfoChangeEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_BEGIN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientBeginEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_DISCONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientDisconnectEventRegex).to_string().as_str()).unwrap() });
+static ITEM_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ItemEventRegex).to_string().as_str()).unwrap() });
+static KILL_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::KillEventRegex).to_string().as_str()).unwrap() });
+static SHUTDOWN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ShutdownEventRegex).to_string().as_str()).unwrap() });
+static EXIT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ExitEventRegex).to_string().as_str()).unwrap() });
+static KILL_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::KillEventLineParserRegex).to_string().as_str()).unwrap() });
+static USER_INFO_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::UserInfoLineParserRegex).to_string().as_str()).unwrap() });
 
 enum LogEvent {
     InitMatch,
@@ -60,44 +61,36 @@ impl LogEvent {
     }
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-struct MatchesData {
-    matches: HashMap<String, MatchData>
-}
-
-impl MatchesData {
-    pub fn new() -> Self {
-        Self {
-            matches: HashMap::new()
-        }
-    }
-
-    fn match_label(&self) -> String {
-        let label: String = format!("game_{}", self.matches.len());
-        return label;
-    }
-
-    pub fn register_new_match_stat(&mut self, match_stats: MatchData) {
-        
-        self.matches.insert(
-            self.match_label(),
-            match_stats
-        );
-    }
-}
-
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Default)]
 struct MatchData {
+    game_match: String,
     total_kills: i32,
     players: HashSet<String>,
     kills: HashMap<String, i32>,
+}
+
+impl Serialize for MatchData {
+
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+    
+        return json!({
+            &self.game_match: {
+                "total_kills": &self.total_kills,
+                "players": serde_json::to_value(&self.players).unwrap(),
+                "kills": serde_json::to_value(&self.kills).unwrap()
+            }
+        }).serialize(serializer);
+    }
 }
 
 pub struct ConcreteLogParser {
     success_callback: Option<Box<LogParserCallBack>>,
     warning_callback: Option<Box<LogParserCallBack>>,
     error_callback: Option<Box<LogParserCallBack>>,
-    matches_data: MatchesData,
+    matches_data: Vec<MatchData>,
     current_match_data: MatchData,
     first_match: bool
 }
@@ -108,8 +101,9 @@ impl ConcreteLogParser {
             success_callback: None,
             warning_callback: None,
             error_callback: None,
-            matches_data: MatchesData::new(),
+            matches_data: Vec::<MatchData>::new(),
             current_match_data: MatchData {
+                game_match: String::from(""),
                 total_kills: 0,
                 players: HashSet::new(),
                 kills: HashMap::new()
@@ -164,6 +158,17 @@ impl ConcreteLogParser {
         
     }
 
+    fn get_match_label(&self) -> String {
+        return format!("{}_{}", CONFIG.get_parameter(ConfigParameter::OutuputMatchKey).to_string().as_str(), self.matches_data.len());
+    }
+ 
+    fn register_new_match_stat(&mut self, match_stats: MatchData) {
+        
+        self.matches_data.push(
+            match_stats
+        );
+    }
+
     async fn parse_log_line(&mut self, line: &str) -> Result<(), LogParserError> {
 
         match LogEvent::detect_line_log_event(line)? {
@@ -171,11 +176,14 @@ impl ConcreteLogParser {
             LogEvent::InitMatch => {
                 if self.first_match == false {
 
-                    self.matches_data.register_new_match_stat(
+                    self.current_match_data.game_match = self.get_match_label();
+
+                    self.register_new_match_stat(
             self.current_match_data.clone()
                     );
     
                     self.current_match_data = MatchData {
+                        game_match: String::from(""),
                         total_kills: 0,
                         players: HashSet::new(),
                         kills: HashMap::new()
@@ -225,18 +233,26 @@ impl ConcreteLogParser {
                     
                     self.current_match_data.total_kills += 1;
 
-                    if killer == "<world>" {
+                    if killer == CONFIG.get_parameter(ConfigParameter::WorldLogPattern).to_string().as_str() {
                         if let Some(kills) = self.current_match_data.kills.get(player_killed) {
                             self.current_match_data.kills.insert(String::from(player_killed), kills - 1);
                         } else {
                             self.current_match_data.kills.insert(String::from(player_killed), -1);
                         }
                     } else {
-                        if killer != player_killed {
+                        if killer != player_killed || CONFIG.get_parameter(ConfigParameter::KillYourselfIncreasesScore).to_boolean() {
                             if let Some(kills) = self.current_match_data.kills.get(killer) {
                                 self.current_match_data.kills.insert(String::from(killer), kills + 1);
                             } else {
                                 self.current_match_data.kills.insert(String::from(killer), 1);
+                            }
+                        }
+
+                        if CONFIG.get_parameter(ConfigParameter::BeingKilledDecreasesScore).to_boolean() {
+                            if let Some(kills) = self.current_match_data.kills.get(player_killed) {
+                                self.current_match_data.kills.insert(String::from(player_killed), kills - 1);
+                            } else {
+                                self.current_match_data.kills.insert(String::from(player_killed), -1);
                             }
                         }
                     }
@@ -299,6 +315,7 @@ impl ILogParser for ConcreteLogParser {
             }
 
             let parsed_data = serde_json::to_value(&self.matches_data).map_err(|_e| LogParserError::SerializationError)?; 
+            
             let stringfied_json = serde_json::to_string(&parsed_data).map_err(|_e| LogParserError::StringfyError)?;
 
             self.handle_callback(

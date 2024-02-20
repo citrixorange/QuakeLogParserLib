@@ -1,7 +1,6 @@
 use crate::interface::{ LogParserCallBack, ILogParser };
 use crate::errors::LogParserError;
 
-use serde_json::Value;
 use std::future::Future;
 use std::pin::Pin;
 

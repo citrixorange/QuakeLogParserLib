@@ -1,0 +1,25 @@
+{
+    "regex_pattern_engine": {
+        "init_game_event": "\\bInitGame\\b",
+        "client_connect_event": "\\bClientConnect\\b",
+        "client_info_change_event": "\\bClientUserinfoChanged\\b",
+        "client_begin_event": "\\bClientBegin\\b",
+        "client_disconnect_event": "\\bClientDisconnect\\b",
+        "item_event": "\\bItem\\b",
+        "kill_event": "\\bKill\\b",
+        "shutdown_event": "\\bShutdownGame\\b",
+        "exit_event": "\\bExit\\b",
+        "kill_event_line_parser": "(\\d+|\\d+\\d+):(\\d+|\\d+\\d+) Kill: \\d+ \\d+ \\d+: ([a-zA-Z0-9\\s\\p{P}<>]*) killed ([a-zA-Z0-9\\s\\p{P}<>]*) by (\\w+)",
+        "user_info_line_parser": "n\\\\([^\\\\]+)\\\\"
+    },
+    "log_patterns": {
+        "world": "<world>"
+    },
+    "kills_rules": {
+        "being_killed_decreases_score": false,
+        "kill_yourself_increases_score": false
+    },
+    "output_format": {
+        "match_key": "game"
+    } 
+}

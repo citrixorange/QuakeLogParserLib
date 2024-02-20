@@ -3,6 +3,7 @@ mod interface;
 mod death_causes;
 mod implementation;
 mod service;
+mod config;
 
 #[cfg(test)]
 mod tests {
