@@ -13,7 +13,11 @@
         "user_info_line_parser": "n\\\\([^\\\\]+)\\\\"
     },
     "log_patterns": {
-        "world": "<world>"
+        "world": "<world>",
+        "total_kills_key": "total_kills",
+        "players_key": "players",
+        "kills_key": "kills",
+        "kill_by_means_key": "kill_by_means"
     },
     "kills_rules": {
         "being_killed_decreases_score": false,

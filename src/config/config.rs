@@ -20,7 +20,11 @@ pub enum ConfigParameter {
     WorldLogPattern,
     BeingKilledDecreasesScore,
     KillYourselfIncreasesScore,
-    OutuputMatchKey,
+    OutputMatchKey,
+    TotalKillsKey,
+    PlayersKey,
+    KillsKey,
+    KillByMeansKey,
     ShowDeathCauses
 }
 
@@ -93,9 +97,13 @@ impl Config {
             ConfigParameter::KillEventLineParserRegex => ConfigOutput::Str(self.regex_pattern_engine.kill_event_line_parser.clone()),
             ConfigParameter::UserInfoLineParserRegex => ConfigOutput::Str(self.regex_pattern_engine.user_info_line_parser.clone()),
             ConfigParameter::WorldLogPattern => ConfigOutput::Str(self.log_patterns.world.clone()),
+            ConfigParameter::KillsKey => ConfigOutput::Str(self.log_patterns.kills.clone()),
+            ConfigParameter::PlayersKey => ConfigOutput::Str(self.log_patterns.players.clone()),
+            ConfigParameter::TotalKillsKey => ConfigOutput::Str(self.log_patterns.total_kills.clone()),
+            ConfigParameter::KillByMeansKey => ConfigOutput::Str(self.log_patterns.kill_by_means.clone()),
             ConfigParameter::BeingKilledDecreasesScore => ConfigOutput::Bool(self.kills_rules.being_killed_decreases_score),
             ConfigParameter::KillYourselfIncreasesScore => ConfigOutput::Bool(self.kills_rules.kill_yourself_increases_score),
-            ConfigParameter::OutuputMatchKey => ConfigOutput::Str(self.output_format.match_key.clone()),
+            ConfigParameter::OutputMatchKey => ConfigOutput::Str(self.output_format.match_key.clone()),
             ConfigParameter::ShowDeathCauses => ConfigOutput::Bool(self.kills_rules.show_death_causes)
         }
     }
@@ -103,7 +111,11 @@ impl Config {
 
 #[derive(Debug, Deserialize)]
 struct LogPatterns {
-    world: String
+    world: String,
+    total_kills: String,
+    players: String,
+    kills: String,
+    kill_by_means: String
 }
 
 #[derive(Debug, Deserialize)]

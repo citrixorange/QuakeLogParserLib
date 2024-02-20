@@ -154,10 +154,10 @@ impl Serialize for MatchData {
 
             return json!({
                 &self.game_match: {
-                    "total_kills": &self.total_kills,
-                    "players": serde_json::to_value(&self.players).unwrap(),
-                    "kills": serde_json::to_value(&self.kills).unwrap(),
-                    "kill_by_means": {
+                    CONFIG.get_parameter(ConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
+                    CONFIG.get_parameter(ConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
+                    CONFIG.get_parameter(ConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap(),
+                    CONFIG.get_parameter(ConfigParameter::KillByMeansKey).to_string().as_str(): {
                         DeathCauses::Unknown.to_string(): &self.kill_means.as_ref().unwrap().unknown,
                         DeathCauses::Shotgun.to_string(): &self.kill_means.as_ref().unwrap().shotgun,
                         DeathCauses::Gauntlet.to_string(): &self.kill_means.as_ref().unwrap().gauntlet,
@@ -193,9 +193,9 @@ impl Serialize for MatchData {
         } else { 
             return json!({
                 &self.game_match: {
-                    "total_kills": &self.total_kills,
-                    "players": serde_json::to_value(&self.players).unwrap(),
-                    "kills": serde_json::to_value(&self.kills).unwrap()
+                    CONFIG.get_parameter(ConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
+                    CONFIG.get_parameter(ConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
+                    CONFIG.get_parameter(ConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap()
                 }
             }).serialize(serializer);
         } 
@@ -276,7 +276,7 @@ impl ConcreteLogParser {
     }
 
     fn get_match_label(&self) -> String {
-        return format!("{}_{}", CONFIG.get_parameter(ConfigParameter::OutuputMatchKey).to_string().as_str(), self.matches_data.len());
+        return format!("{}_{}", CONFIG.get_parameter(ConfigParameter::OutputMatchKey).to_string().as_str(), self.matches_data.len());
     }
  
     fn register_new_match_stat(&mut self, match_stats: MatchData) {
