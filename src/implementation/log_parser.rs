@@ -1,5 +1,6 @@
 use std::future::Future;
 use std::pin::Pin;
+use std::cell::RefCell;
 use std::io::{self, BufRead};
 use serde::{Serialize, Serializer};
 use serde_json::{json};
@@ -11,6 +12,8 @@ use crate::interface::{ILogParser, LogParserCallBack, CallbackType, CallbackPayl
 use crate::errors::LogParserError;
 use crate::config::config::{CONFIG, ConfigParameter};
 use crate::death_causes::DeathCauses;
+
+thread_local!(pub static LOG_FILE_PATH: RefCell<Option<String>> = RefCell::new(None) );
 
 static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(&CONFIG.get_parameter(ConfigParameter::InitGameEventRegex).to_string().as_str()).unwrap() });
 static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientConnectEventRegex).to_string().as_str()).unwrap() });
@@ -445,7 +448,18 @@ impl ILogParser for ConcreteLogParser {
 
     fn parse_file(&mut self) -> Pin<Box<dyn Future<Output = Result<String, LogParserError>> + '_>> {
         let future = async {
-            let input = std::fs::File::open("sample_log.log").map_err(|_e| LogParserError::ReadFileError)?;
+
+            let mut path:String = String::from(""); 
+
+            LOG_FILE_PATH.with(|log_file_path_handler| {
+                if let Some(log_file_path) = log_file_path_handler.borrow().as_ref() {
+                    path = log_file_path.clone();
+                } else {
+                    panic!("No Log File Path Found...")
+                }
+            });
+
+            let input = std::fs::File::open(path).map_err(|_e| LogParserError::ReadFileError)?;
             let reader = io::BufReader::new(input);
         
             for line in reader.lines() {
@@ -471,7 +485,7 @@ impl ILogParser for ConcreteLogParser {
                    Some(stringfied_json.clone())
              ).await;
 
-            return Ok(stringfied_json)
+            return Ok(stringfied_json);
         };
 
         return Box::pin(future);

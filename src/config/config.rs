@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
 use serde::Deserialize;
@@ -23,13 +24,28 @@ pub enum ConfigParameter {
     ShowDeathCauses
 }
 
+thread_local!(pub static CONFIG_FILE_PATH: RefCell<Option<String>> = RefCell::new(None) );
+
 lazy_static! {
+
     pub static ref CONFIG: Config = {
-        let config_file_path = "/home/cesar-sandbox/Projects/QuakeLogParserLib/config.json";
-        let mut file = File::open(config_file_path).expect("Unable to open config file");
+
+        let mut path:String =  String::from(""); 
+
+        CONFIG_FILE_PATH.with(|config_file_path_handler| {
+            
+            if let Some(config_file_path) = config_file_path_handler.borrow().as_ref() {
+                path = config_file_path.clone();
+            } else {
+                panic!("No Config File Path Found...")
+            }
+        });
+
+        let mut file = File::open(path).expect("Unable to open config file");
         let mut file_content = String::new();
         file.read_to_string(&mut file_content).expect("Unable to read config file");
-        serde_json::from_str(&file_content).expect("Unable to parse config Json file")
+        return serde_json::from_str(&file_content).expect("Unable to parse config Json file");
+
     };
 }
 

@@ -1,5 +1,4 @@
 use std::fmt;
-use std::str::FromStr;
 
 #[derive(Debug, Copy, Clone)]
 pub enum DeathCauses {
