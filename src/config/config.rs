@@ -19,7 +19,8 @@ pub enum ConfigParameter {
     WorldLogPattern,
     BeingKilledDecreasesScore,
     KillYourselfIncreasesScore,
-    OutuputMatchKey
+    OutuputMatchKey,
+    ShowDeathCauses
 }
 
 lazy_static! {
@@ -78,7 +79,8 @@ impl Config {
             ConfigParameter::WorldLogPattern => ConfigOutput::Str(self.log_patterns.world.clone()),
             ConfigParameter::BeingKilledDecreasesScore => ConfigOutput::Bool(self.kills_rules.being_killed_decreases_score),
             ConfigParameter::KillYourselfIncreasesScore => ConfigOutput::Bool(self.kills_rules.kill_yourself_increases_score),
-            ConfigParameter::OutuputMatchKey => ConfigOutput::Str(self.output_format.match_key.clone())
+            ConfigParameter::OutuputMatchKey => ConfigOutput::Str(self.output_format.match_key.clone()),
+            ConfigParameter::ShowDeathCauses => ConfigOutput::Bool(self.kills_rules.show_death_causes)
         }
     }
 }
@@ -106,7 +108,8 @@ struct RegexPatterns {
 #[derive(Debug, Deserialize)]
 struct KillsRules {
     being_killed_decreases_score: bool,
-    kill_yourself_increases_score: bool
+    kill_yourself_increases_score: bool,
+    show_death_causes: bool
 }
 
 #[derive(Debug, Deserialize)]

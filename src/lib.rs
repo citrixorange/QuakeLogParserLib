@@ -1,3 +1,5 @@
+#![recursion_limit = "256"]
+
 mod errors;
 mod interface;
 mod death_causes;
