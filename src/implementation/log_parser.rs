@@ -10,22 +10,23 @@ use once_cell::sync::Lazy;
 
 use crate::interface::{ILogParser, LogParserCallBack, CallbackType, CallbackPayload};
 use crate::errors::LogParserError;
-use crate::config::config::{CONFIG, ConfigParameter};
+use crate::config::static_config::{STATIC_CONFIG, StaticConfigParameter};
+use crate::config::dynamic_config::{CONFIG, ConfigParameter};
 use crate::death_causes::DeathCauses;
 
 thread_local!(pub static LOG_FILE_PATH: RefCell<Option<String>> = RefCell::new(None) );
 
-static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(&CONFIG.get_parameter(ConfigParameter::InitGameEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientConnectEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientInfoChangeEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_BEGIN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientBeginEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_DISCONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ClientDisconnectEventRegex).to_string().as_str()).unwrap() });
-static ITEM_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ItemEventRegex).to_string().as_str()).unwrap() });
-static KILL_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::KillEventRegex).to_string().as_str()).unwrap() });
-static SHUTDOWN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ShutdownEventRegex).to_string().as_str()).unwrap() });
-static EXIT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::ExitEventRegex).to_string().as_str()).unwrap() });
-static KILL_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::KillEventLineParserRegex).to_string().as_str()).unwrap() });
-static USER_INFO_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(CONFIG.get_parameter(ConfigParameter::UserInfoLineParserRegex).to_string().as_str()).unwrap() });
+static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::InitGameEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientConnectEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientInfoChangeEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_BEGIN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientBeginEventRegex).to_string().as_str()).unwrap() });
+static CLIENT_DISCONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientDisconnectEventRegex).to_string().as_str()).unwrap() });
+static ITEM_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ItemEventRegex).to_string().as_str()).unwrap() });
+static KILL_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::KillEventRegex).to_string().as_str()).unwrap() });
+static SHUTDOWN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ShutdownEventRegex).to_string().as_str()).unwrap() });
+static EXIT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ExitEventRegex).to_string().as_str()).unwrap() });
+static KILL_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::KillEventLineParserRegex).to_string().as_str()).unwrap() });
+static USER_INFO_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::UserInfoLineParserRegex).to_string().as_str()).unwrap() });
 
 enum LogEvent {
     InitMatch,
@@ -149,15 +150,20 @@ impl Serialize for MatchData {
     where
         S: Serializer,
     {
+        let mut show_death_causes: bool = false;
 
-        if CONFIG.get_parameter(ConfigParameter::ShowDeathCauses).to_boolean() { 
+        CONFIG.with(|config| {
+            show_death_causes = config.borrow().get_parameter(ConfigParameter::ShowDeathCauses).to_boolean();
+        });
+
+        if show_death_causes { 
 
             return json!({
                 &self.game_match: {
-                    CONFIG.get_parameter(ConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
-                    CONFIG.get_parameter(ConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
-                    CONFIG.get_parameter(ConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap(),
-                    CONFIG.get_parameter(ConfigParameter::KillByMeansKey).to_string().as_str(): {
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap(),
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillByMeansKey).to_string().as_str(): {
                         DeathCauses::Unknown.to_string(): &self.kill_means.as_ref().unwrap().unknown,
                         DeathCauses::Shotgun.to_string(): &self.kill_means.as_ref().unwrap().shotgun,
                         DeathCauses::Gauntlet.to_string(): &self.kill_means.as_ref().unwrap().gauntlet,
@@ -193,9 +199,9 @@ impl Serialize for MatchData {
         } else { 
             return json!({
                 &self.game_match: {
-                    CONFIG.get_parameter(ConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
-                    CONFIG.get_parameter(ConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
-                    CONFIG.get_parameter(ConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap()
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
+                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap()
                 }
             }).serialize(serializer);
         } 
@@ -213,6 +219,13 @@ pub(crate) struct ConcreteLogParser {
 
 impl ConcreteLogParser {
     pub(crate) fn new() -> Self {
+
+        let mut show_death_causes: bool = false;
+
+        CONFIG.with(|config| {
+            show_death_causes = config.borrow().get_parameter(ConfigParameter::ShowDeathCauses).to_boolean();
+        });
+
         Self {
             success_callback: None,
             warning_callback: None,
@@ -223,7 +236,7 @@ impl ConcreteLogParser {
                 total_kills: 0,
                 players: HashSet::new(),
                 kills: HashMap::new(),
-                kill_means: if CONFIG.get_parameter(ConfigParameter::ShowDeathCauses).to_boolean() { Some(MatchKillMeans::new()) } else { None } 
+                kill_means: if show_death_causes { Some(MatchKillMeans::new()) } else { None } 
             },
             first_match: true
         }
@@ -276,7 +289,7 @@ impl ConcreteLogParser {
     }
 
     fn get_match_label(&self) -> String {
-        return format!("{}_{}", CONFIG.get_parameter(ConfigParameter::OutputMatchKey).to_string().as_str(), self.matches_data.len());
+        return format!("{}_{}", STATIC_CONFIG.get_parameter(StaticConfigParameter::OutputMatchKey).to_string().as_str(), self.matches_data.len());
     }
  
     fn register_new_match_stat(&mut self, match_stats: MatchData) {
@@ -293,6 +306,12 @@ impl ConcreteLogParser {
             LogEvent::InitMatch => {
                 if self.first_match == false {
 
+                    let mut show_death_causes: bool = false;
+
+                    CONFIG.with(|config| {
+                        show_death_causes = config.borrow().get_parameter(ConfigParameter::ShowDeathCauses).to_boolean();
+                    });
+
                     self.current_match_data.game_match = self.get_match_label();
 
                     self.register_new_match_stat(
@@ -304,7 +323,7 @@ impl ConcreteLogParser {
                         total_kills: 0,
                         players: HashSet::new(),
                         kills: HashMap::new(),
-                        kill_means: if CONFIG.get_parameter(ConfigParameter::ShowDeathCauses).to_boolean() { Some(MatchKillMeans::new()) } else { None }
+                        kill_means: if show_death_causes { Some(MatchKillMeans::new()) } else { None }
                     };
 
                 } else {
@@ -345,20 +364,31 @@ impl ConcreteLogParser {
             LogEvent::Kill => {
                 if let Some(captures) = KILL_PARSER_REGEX.captures(line) {
 
+                    let mut show_death_causes: bool = false;
+                    let mut self_kill_increases_score: bool = false;
+                    let mut being_killed_decreases_score: bool = false;
+
+                    CONFIG.with(|config| {
+                        show_death_causes = config.borrow().get_parameter(ConfigParameter::ShowDeathCauses).to_boolean();
+                        self_kill_increases_score = config.borrow().get_parameter(ConfigParameter::KillYourselfIncreasesScore).to_boolean();
+                        being_killed_decreases_score = config.borrow().get_parameter(ConfigParameter::BeingKilledDecreasesScore).to_boolean();
+                    });
+
                     let killer = &captures[3];
                     let player_killed = &captures[4];
                     let gun = &captures[5];
                     
                     self.current_match_data.total_kills += 1;
 
-                    if killer == CONFIG.get_parameter(ConfigParameter::WorldLogPattern).to_string().as_str() {
+                    if killer == STATIC_CONFIG.get_parameter(StaticConfigParameter::WorldLogPattern).to_string().as_str() {
                         if let Some(kills) = self.current_match_data.kills.get(player_killed) {
                             self.current_match_data.kills.insert(String::from(player_killed), kills - 1);
                         } else {
                             self.current_match_data.kills.insert(String::from(player_killed), -1);
                         }
                     } else {
-                        if killer != player_killed || CONFIG.get_parameter(ConfigParameter::KillYourselfIncreasesScore).to_boolean() {
+
+                        if killer != player_killed || self_kill_increases_score {
                             if let Some(kills) = self.current_match_data.kills.get(killer) {
                                 self.current_match_data.kills.insert(String::from(killer), kills + 1);
                             } else {
@@ -366,7 +396,7 @@ impl ConcreteLogParser {
                             }
                         }
 
-                        if CONFIG.get_parameter(ConfigParameter::BeingKilledDecreasesScore).to_boolean() {
+                        if being_killed_decreases_score {
                             if let Some(kills) = self.current_match_data.kills.get(player_killed) {
                                 self.current_match_data.kills.insert(String::from(player_killed), kills - 1);
                             } else {
@@ -375,7 +405,7 @@ impl ConcreteLogParser {
                         }
                     }
 
-                    if CONFIG.get_parameter(ConfigParameter::ShowDeathCauses).to_boolean() {
+                    if show_death_causes {
                         
                         if let Ok(death_cause) = DeathCauses::from_str(gun) {
                             match death_cause {
@@ -451,11 +481,11 @@ impl ILogParser for ConcreteLogParser {
 
             let mut path:String = String::from(""); 
 
-            LOG_FILE_PATH.with(|log_file_path_handler| {
-                if let Some(log_file_path) = log_file_path_handler.borrow().as_ref() {
+            CONFIG.with(|config| {
+                if let Some(log_file_path) = config.borrow().get_parameter(ConfigParameter::LogFilePath).to_optional_string() {
                     path = log_file_path.clone();
                 } else {
-                    panic!("{}", CONFIG.get_parameter(ConfigParameter::LogFilePathNotFoundErrMsg).to_string().as_str())
+                    panic!("{}", STATIC_CONFIG.get_parameter(StaticConfigParameter::LogFilePathNotFoundErrMsg).to_string().as_str())
                 }
             });
 

@@ -1,6 +1,6 @@
 use std::fmt;
 
-use crate::config::config::{ConfigParameter, CONFIG};
+use crate::config::static_config::{StaticConfigParameter, STATIC_CONFIG};
 
 #[derive(Debug, Copy, Clone)]
 pub enum DeathCauses {
@@ -74,6 +74,7 @@ impl fmt::Display for DeathCauses {
 impl DeathCauses {
 
     pub fn from_str(s: &str) -> Result<Self, String> {
+
         match s {
             "MOD_UNKNOWN" => Ok(DeathCauses::Unknown),
             "MOD_SHOTGUN" => Ok(DeathCauses::Shotgun),
@@ -104,7 +105,7 @@ impl DeathCauses {
             "MOD_KAMIKAZE" => Ok(DeathCauses::Kamikaze),
             "MOD_JUICED" => Ok(DeathCauses::Juiced),
             "MOD_GRAPPLE" => Ok(DeathCauses::Grapple),
-            _ => Err(CONFIG.get_parameter(ConfigParameter::InvalidKillMeanTokenErrMsg).to_string())
+            _ => Err(STATIC_CONFIG.get_parameter(StaticConfigParameter::InvalidKillMeanTokenErrMsg).to_string())
         }
     }
 }

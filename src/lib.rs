@@ -28,8 +28,11 @@ mod tests {
 
     use super::{
         service::LogParser,
-        implementation::log_parser::{ConcreteLogParser, LOG_FILE_PATH},
-        config::config::CONFIG_FILE_PATH
+        implementation::log_parser::{ConcreteLogParser},
+        config::{
+            config::ConfigValue,
+            dynamic_config::{CONFIG_FILE_PATH, CONFIG, ConfigParameter}
+        }
     };
 
     #[test]
@@ -39,8 +42,8 @@ mod tests {
             *config_file_path_handler.borrow_mut() = Some(String::from("config.json"));
         });
 
-        LOG_FILE_PATH.with(|log_file_path_handler| {
-            *log_file_path_handler.borrow_mut() = Some(String::from("sample_log.log"));
+        CONFIG.with(|config| {
+            config.borrow_mut().set_parameter(ConfigParameter::LogFilePath, ConfigValue::Str(String::from("sample_log.log")))
         });
 
         let concrete_log_parser = ConcreteLogParser::new();
