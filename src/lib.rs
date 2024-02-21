@@ -3,7 +3,7 @@
 mod errors;
 mod interface;
 mod death_causes;
-mod implementation;
+pub mod implementation;
 mod service;
 pub mod config;
 

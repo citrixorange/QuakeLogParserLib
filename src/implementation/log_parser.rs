@@ -202,7 +202,7 @@ impl Serialize for MatchData {
     }
 }
 
-pub struct ConcreteLogParser {
+pub(crate) struct ConcreteLogParser {
     success_callback: Option<Box<LogParserCallBack>>,
     warning_callback: Option<Box<LogParserCallBack>>,
     error_callback: Option<Box<LogParserCallBack>>,
@@ -212,7 +212,7 @@ pub struct ConcreteLogParser {
 }
 
 impl ConcreteLogParser {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             success_callback: None,
             warning_callback: None,
