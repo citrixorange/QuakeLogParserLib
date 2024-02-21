@@ -46,3 +46,15 @@ impl From<LogParserError> for &'static str {
         }
     }
 }
+
+impl From<LogParserError> for String {
+    fn from(error: LogParserError) -> String {
+        match error {
+            LogParserError::RegexParserError => String::from("LogParserError::RegexParserError"),
+            LogParserError::ReadFileError => String::from("LogParserError::ReadFileError"),
+            LogParserError::SerializationError => String::from("LogParserError::SerializationError"),
+            LogParserError::StringfyError => String::from("LogParserError::StringfyError"),
+            LogParserError::UnexpectedError => String::from("LogParserError::UnexpectedError"),
+        }
+    }
+}

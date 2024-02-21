@@ -12,8 +12,8 @@ pub enum CallbackType {
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct CallbackPayload<'a> {
-    pub error: Option<&'a str>,
+pub struct CallbackPayload {
+    pub error: Option<String>,
     pub data: Option<String>
 }
 
