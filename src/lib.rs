@@ -10,8 +10,7 @@ pub mod config;
 pub mod lib {
     use super::{
         service::LogParser,
-        implementation::log_parser::{ConcreteLogParser, LOG_FILE_PATH},
-        config::config::CONFIG_FILE_PATH
+        implementation::log_parser::ConcreteLogParser,
     };
 
     pub fn factory() -> LogParser {
