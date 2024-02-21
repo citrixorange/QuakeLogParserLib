@@ -26,5 +26,9 @@
     },
     "output_format": {
         "match_key": "game"
+    },
+    "errors": {
+        "invalid_kill_mean_token": "Invalid Kill Mean Token",
+        "log_file_path_not_found": "No Log File Path Found..."
     } 
 }

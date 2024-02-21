@@ -25,7 +25,9 @@ pub enum ConfigParameter {
     PlayersKey,
     KillsKey,
     KillByMeansKey,
-    ShowDeathCauses
+    ShowDeathCauses,
+    InvalidKillMeanTokenErrMsg,
+    LogFilePathNotFoundErrMsg
 }
 
 thread_local!(pub static CONFIG_FILE_PATH: RefCell<Option<String>> = RefCell::new(None) );
@@ -79,7 +81,8 @@ pub struct Config {
     regex_pattern_engine: RegexPatterns,
     log_patterns: LogPatterns,
     kills_rules: KillsRules,
-    output_format: OutputFormat
+    output_format: OutputFormat,
+    error_messages: ErrorMessages
 }
 
 impl Config {
@@ -104,7 +107,9 @@ impl Config {
             ConfigParameter::BeingKilledDecreasesScore => ConfigOutput::Bool(self.kills_rules.being_killed_decreases_score),
             ConfigParameter::KillYourselfIncreasesScore => ConfigOutput::Bool(self.kills_rules.kill_yourself_increases_score),
             ConfigParameter::OutputMatchKey => ConfigOutput::Str(self.output_format.match_key.clone()),
-            ConfigParameter::ShowDeathCauses => ConfigOutput::Bool(self.kills_rules.show_death_causes)
+            ConfigParameter::ShowDeathCauses => ConfigOutput::Bool(self.kills_rules.show_death_causes),
+            ConfigParameter::InvalidKillMeanTokenErrMsg => ConfigOutput::Str(self.error_messages.invalid_kill_mean_token.clone()),
+            ConfigParameter::LogFilePathNotFoundErrMsg => ConfigOutput::Str(self.error_messages.log_file_path_not_found.clone())
         }
     }
 }
@@ -143,4 +148,10 @@ struct KillsRules {
 #[derive(Debug, Deserialize)]
 struct OutputFormat {
     match_key: String
+}
+
+#[derive(Debug, Deserialize)]
+struct ErrorMessages {
+    invalid_kill_mean_token: String,
+    log_file_path_not_found: String
 }

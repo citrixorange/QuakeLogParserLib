@@ -1,5 +1,7 @@
 use std::fmt;
 
+use crate::config::config::{ConfigParameter, CONFIG};
+
 #[derive(Debug, Copy, Clone)]
 pub enum DeathCauses {
     Unknown,
@@ -102,7 +104,7 @@ impl DeathCauses {
             "MOD_KAMIKAZE" => Ok(DeathCauses::Kamikaze),
             "MOD_JUICED" => Ok(DeathCauses::Juiced),
             "MOD_GRAPPLE" => Ok(DeathCauses::Grapple),
-            _ => Err("Invalid string".to_string())
+            _ => Err(CONFIG.get_parameter(ConfigParameter::InvalidKillMeanTokenErrMsg).to_string())
         }
     }
 }

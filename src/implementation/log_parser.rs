@@ -455,7 +455,7 @@ impl ILogParser for ConcreteLogParser {
                 if let Some(log_file_path) = log_file_path_handler.borrow().as_ref() {
                     path = log_file_path.clone();
                 } else {
-                    panic!("No Log File Path Found...")
+                    panic!("{}", CONFIG.get_parameter(ConfigParameter::LogFilePathNotFoundErrMsg).to_string().as_str())
                 }
             });
 
