@@ -1,6 +1,6 @@
 #![recursion_limit = "512"]
 
-mod errors;
+pub mod errors;
 mod interface;
 mod death_causes;
 pub mod implementation;
