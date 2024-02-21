@@ -4,12 +4,12 @@ use crate::errors::LogParserError;
 use std::future::Future;
 use std::pin::Pin;
 
-pub struct LogParser<'a> {
-    log_parser: &'a mut dyn ILogParser
+pub struct LogParser {
+    log_parser: Box<dyn ILogParser>
 }
 
-impl <'a>LogParser<'a> {
-    pub fn new(log_parser: &'a mut dyn ILogParser) -> Self {
+impl LogParser {
+    pub fn new(log_parser: Box<dyn ILogParser>) -> Self {
         Self { log_parser }
     }
 
