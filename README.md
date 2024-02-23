@@ -6,6 +6,8 @@ This crate is available at: https://crates.io/crates/quake_log_parser_lib
 
 Docs at: https://docs.rs/quake_log_parser_lib/0.1.8/quake_log_parser_lib/
 
+Check Time Management of this Project at: https://wakatime.com/projects/QuakeLogParserLib
+
 # Instructions
 
 Add this crate as a dependency in your Rust App:
@@ -14,7 +16,7 @@ Add this crate as a dependency in your Rust App:
 
 # Author Notes
 
-This Lib has been developed thinking to apply some of Clean Code Techniques:
+This Lib has been developed thinking to present Author Clean Code Skills:
 
 - **Dependency Inversion Principle:** declaring an abstract interface which depends by business core. Develop a Concrete Class dependent by interface only. Injects Concrete Class into a Extern Crate Public Service Class.
 
@@ -30,4 +32,8 @@ This Lib has been developed thinking to apply some of Clean Code Techniques:
 
 A List of Applications that use this crate lib:
 
-- **Cli App:** https://github.com/citrixorange/QuakeLogParserCliApp   
+- **Cli App:** https://github.com/citrixorange/QuakeLogParserCliApp
+
+- **Log Parsing Daemon Agent:** A Daemon Process detects when a new log file is created at server matches log folder. Parsed Stats are fetched by Prometheus Server and displayed by a Graphana Instance. Coming soon...
+
+- **Log Parse Horizontal Scaling using RabbitMQ, AWS S3, Kubernetes:** Log Files are stored and addressed in a AWS S3 instance. RabbitMQ publishes a message containing Log File S3 address. Kubernetes HPA(Horizontal Pod Autoscaling) uses RabbitMQ queue depth as main metrics for autoscaling. New Pods created pull Log File S3 Address from RabbitMQ, parse match log and send stats to a Prometheus Server. Coming soon...    
