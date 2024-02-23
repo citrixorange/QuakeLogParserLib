@@ -4,7 +4,7 @@ A Crate Lib for Parsing Quake Game Log
 
 This crate is available at: https://crates.io/crates/quake_log_parser_lib
 
-Docs at: https://docs.rs/quake_log_parser_lib/0.1.8/quake_log_parser_lib/
+Docs at: https://docs.rs/quake_log_parser_lib/0.1.9/quake_log_parser_lib/
 
 Check Time Management of this Project at: https://wakatime.com/projects/QuakeLogParserLib
 
