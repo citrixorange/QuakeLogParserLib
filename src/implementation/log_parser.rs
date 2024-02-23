@@ -2,211 +2,24 @@ use std::future::Future;
 use std::pin::Pin;
 use std::cell::RefCell;
 use std::io::{self, BufRead};
-use serde::{Serialize, Serializer};
-use serde_json::{json};
 use std::collections::{HashMap, HashSet};
-use regex::Regex;
-use once_cell::sync::Lazy;
 
 use crate::interface::{ILogParser, LogParserCallBack, CallbackType, CallbackPayload};
 use crate::errors::LogParserError;
 use crate::config::static_config::{STATIC_CONFIG, StaticConfigParameter};
 use crate::config::dynamic_config::{CONFIG, ConfigParameter};
 use crate::death_causes::DeathCauses;
+use crate::implementation::{
+    death_causes::MatchKillMeans,
+    match_data::MatchData,
+    log_event::{
+        LogEvent,
+        KILL_PARSER_REGEX,
+        USER_INFO_PARSER_REGEX
+    },
+};
 
 thread_local!(pub static LOG_FILE_PATH: RefCell<Option<String>> = RefCell::new(None) );
-
-static INIT_GAME_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::InitGameEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_CONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientConnectEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientInfoChangeEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_BEGIN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientBeginEventRegex).to_string().as_str()).unwrap() });
-static CLIENT_DISCONNECT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ClientDisconnectEventRegex).to_string().as_str()).unwrap() });
-static ITEM_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ItemEventRegex).to_string().as_str()).unwrap() });
-static KILL_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::KillEventRegex).to_string().as_str()).unwrap() });
-static SHUTDOWN_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ShutdownEventRegex).to_string().as_str()).unwrap() });
-static EXIT_EVENT_DETECT_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::ExitEventRegex).to_string().as_str()).unwrap() });
-static KILL_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::KillEventLineParserRegex).to_string().as_str()).unwrap() });
-static USER_INFO_PARSER_REGEX: Lazy<Regex> = Lazy::new(|| { Regex::new(STATIC_CONFIG.get_parameter(StaticConfigParameter::UserInfoLineParserRegex).to_string().as_str()).unwrap() });
-
-enum LogEvent {
-    InitMatch,
-    ClientConnect,
-    ClientUserinfoChanged,
-    ClientBegin,
-    ClientDisconnect,
-    Item,
-    Kill,
-    ShutdownGame,
-    Exit
-}
-
-impl LogEvent {
-    fn detect_line_log_event(log_line: &str) -> Result<Self, LogParserError> {
-         if ITEM_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::Item);
-         } else if KILL_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::Kill);
-         } else if CLIENT_INFO_CHANGE_EVENT_DETECT_REGEX.is_match(log_line){
-             return Ok(LogEvent::ClientUserinfoChanged);
-         } else if CLIENT_CONNECT_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::ClientConnect);
-         } else if CLIENT_BEGIN_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::ClientBegin);
-         } else if CLIENT_DISCONNECT_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::ClientDisconnect);
-         } else if INIT_GAME_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::InitMatch);
-         } else if SHUTDOWN_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::ShutdownGame);
-         } else if EXIT_EVENT_DETECT_REGEX.is_match(log_line) {
-            return Ok(LogEvent::Exit);
-         } else {
-            return Err(LogParserError::RegexParserError)
-         }
-    }
-}
-
-#[derive(Clone, Default)]
-struct MatchKillMeans {
-    unknown: usize,
-    shotgun: usize,
-    gauntlet: usize,
-    machine_gun: usize,
-    grenade: usize,
-    grenade_splash: usize,
-    rocket: usize,
-    rocket_splash: usize,
-    plasma: usize,
-    plasma_splash: usize,
-    railgun: usize,
-    lightning: usize,
-    bfg: usize,
-    bfg_splash: usize,
-    water: usize,
-    slime: usize,
-    lava: usize,
-    crush: usize,
-    telefrag: usize,
-    falling: usize,
-    suicide: usize,
-    target_laser: usize,
-    trigger_hurt: usize,
-    nail: usize,
-    chaingun: usize,
-    proximity_mine: usize,
-    kamikaze: usize,
-    juiced: usize,
-    grapple: usize
-}
-
-impl MatchKillMeans {
-    pub fn new() -> Self {
-        Self {
-            unknown: 0,
-            shotgun: 0,
-            gauntlet: 0,
-            machine_gun: 0,
-            grenade: 0,
-            grenade_splash: 0,
-            rocket: 0,
-            rocket_splash: 0,
-            plasma: 0,
-            plasma_splash: 0,
-            railgun: 0,
-            lightning: 0,
-            bfg: 0,
-            bfg_splash: 0,
-            water: 0,
-            slime: 0,
-            lava: 0,
-            crush: 0,
-            telefrag: 0,
-            falling: 0,
-            suicide: 0,
-            target_laser: 0,
-            trigger_hurt: 0,
-            nail: 0,
-            chaingun: 0,
-            proximity_mine: 0,
-            kamikaze: 0,
-            juiced: 0,
-            grapple: 0
-        }
-    } 
-}
-
-#[derive(Clone, Default)]
-struct MatchData {
-    game_match: String,
-    total_kills: i32,
-    players: HashSet<String>,
-    kills: HashMap<String, i32>,
-    kill_means: Option<MatchKillMeans>
-}
-
-impl Serialize for MatchData {
-
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut show_death_causes: bool = false;
-
-        CONFIG.with(|config| {
-            show_death_causes = config.borrow().get_parameter(ConfigParameter::ShowDeathCauses).to_boolean();
-        });
-
-        if show_death_causes { 
-
-            return json!({
-                &self.game_match: {
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap(),
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillByMeansKey).to_string().as_str(): {
-                        DeathCauses::Unknown.to_string(): &self.kill_means.as_ref().unwrap().unknown,
-                        DeathCauses::Shotgun.to_string(): &self.kill_means.as_ref().unwrap().shotgun,
-                        DeathCauses::Gauntlet.to_string(): &self.kill_means.as_ref().unwrap().gauntlet,
-                        DeathCauses::MachineGun.to_string(): &self.kill_means.as_ref().unwrap().machine_gun,
-                        DeathCauses::Grenade.to_string(): &self.kill_means.as_ref().unwrap().grenade,
-                        DeathCauses::GrenadeSplash.to_string(): &self.kill_means.as_ref().unwrap().grenade_splash,
-                        DeathCauses::Rocket.to_string(): &self.kill_means.as_ref().unwrap().rocket,
-                        DeathCauses::RocketSplash.to_string(): &self.kill_means.as_ref().unwrap().rocket_splash,
-                        DeathCauses::Plasma.to_string(): &self.kill_means.as_ref().unwrap().plasma,
-                        DeathCauses::PlasmaSplash.to_string(): &self.kill_means.as_ref().unwrap().plasma_splash,
-                        DeathCauses::Railgun.to_string(): &self.kill_means.as_ref().unwrap().railgun,
-                        DeathCauses::Lightning.to_string(): &self.kill_means.as_ref().unwrap().lightning,
-                        DeathCauses::Bfg.to_string(): &self.kill_means.as_ref().unwrap().bfg,
-                        DeathCauses::BfgSplash.to_string(): &self.kill_means.as_ref().unwrap().bfg_splash,
-                        DeathCauses::Water.to_string(): &self.kill_means.as_ref().unwrap().water,
-                        DeathCauses::Slime.to_string(): &self.kill_means.as_ref().unwrap().slime,
-                        DeathCauses::Lava.to_string(): &self.kill_means.as_ref().unwrap().lava,
-                        DeathCauses::Crush.to_string(): &self.kill_means.as_ref().unwrap().crush,
-                        DeathCauses::Telefrag.to_string(): &self.kill_means.as_ref().unwrap().telefrag,
-                        DeathCauses::Falling.to_string(): &self.kill_means.as_ref().unwrap().falling,
-                        DeathCauses::Suicide.to_string(): &self.kill_means.as_ref().unwrap().suicide,
-                        DeathCauses::TargetLaser.to_string(): &self.kill_means.as_ref().unwrap().target_laser,
-                        DeathCauses::TriggerHurt.to_string(): &self.kill_means.as_ref().unwrap().trigger_hurt,
-                        DeathCauses::Nail.to_string(): &self.kill_means.as_ref().unwrap().nail,
-                        DeathCauses::Chaingun.to_string(): &self.kill_means.as_ref().unwrap().chaingun,
-                        DeathCauses::ProximityMine.to_string(): &self.kill_means.as_ref().unwrap().proximity_mine,
-                        DeathCauses::Kamikaze.to_string(): &self.kill_means.as_ref().unwrap().kamikaze,
-                        DeathCauses::Juiced.to_string(): &self.kill_means.as_ref().unwrap().juiced,
-                        DeathCauses::Grapple.to_string(): &self.kill_means.as_ref().unwrap().grapple
-                    }
-                }
-            }).serialize(serializer); 
-        } else { 
-            return json!({
-                &self.game_match: {
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::TotalKillsKey).to_string().as_str(): &self.total_kills,
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::PlayersKey).to_string().as_str(): serde_json::to_value(&self.players).unwrap(),
-                    STATIC_CONFIG.get_parameter(StaticConfigParameter::KillsKey).to_string().as_str(): serde_json::to_value(&self.kills).unwrap()
-                }
-            }).serialize(serializer);
-        } 
-    }
-}
 
 pub(crate) struct ConcreteLogParser {
     success_callback: Option<Box<LogParserCallBack>>,
@@ -315,7 +128,7 @@ impl ConcreteLogParser {
                     self.current_match_data.game_match = self.get_match_label();
 
                     self.register_new_match_stat(
-            self.current_match_data.clone()
+                        self.current_match_data.clone()
                     );
     
                     self.current_match_data = MatchData {
@@ -408,37 +221,7 @@ impl ConcreteLogParser {
                     if show_death_causes {
                         
                         if let Ok(death_cause) = DeathCauses::from_str(gun) {
-                            match death_cause {
-                                DeathCauses::Unknown => self.current_match_data.kill_means.as_mut().unwrap().unknown += 1,
-                                DeathCauses::Shotgun => self.current_match_data.kill_means.as_mut().unwrap().shotgun += 1,
-                                DeathCauses::Gauntlet => self.current_match_data.kill_means.as_mut().unwrap().gauntlet += 1,
-                                DeathCauses::MachineGun => self.current_match_data.kill_means.as_mut().unwrap().machine_gun += 1,
-                                DeathCauses::Grenade => self.current_match_data.kill_means.as_mut().unwrap().grenade += 1,
-                                DeathCauses::GrenadeSplash => self.current_match_data.kill_means.as_mut().unwrap().grenade_splash += 1,
-                                DeathCauses::Rocket => self.current_match_data.kill_means.as_mut().unwrap().rocket += 1,
-                                DeathCauses::RocketSplash => self.current_match_data.kill_means.as_mut().unwrap().rocket_splash += 1,
-                                DeathCauses::Plasma => self.current_match_data.kill_means.as_mut().unwrap().plasma += 1,
-                                DeathCauses::PlasmaSplash => self.current_match_data.kill_means.as_mut().unwrap().plasma_splash += 1,
-                                DeathCauses::Railgun => self.current_match_data.kill_means.as_mut().unwrap().railgun += 1,
-                                DeathCauses::Lightning => self.current_match_data.kill_means.as_mut().unwrap().lightning += 1,
-                                DeathCauses::Bfg => self.current_match_data.kill_means.as_mut().unwrap().bfg += 1,
-                                DeathCauses::BfgSplash => self.current_match_data.kill_means.as_mut().unwrap().bfg_splash += 1,
-                                DeathCauses::Water => self.current_match_data.kill_means.as_mut().unwrap().water += 1,
-                                DeathCauses::Slime => self.current_match_data.kill_means.as_mut().unwrap().slime += 1,
-                                DeathCauses::Lava => self.current_match_data.kill_means.as_mut().unwrap().lava += 1,
-                                DeathCauses::Crush => self.current_match_data.kill_means.as_mut().unwrap().crush += 1,
-                                DeathCauses::Telefrag => self.current_match_data.kill_means.as_mut().unwrap().telefrag += 1,
-                                DeathCauses::Falling => self.current_match_data.kill_means.as_mut().unwrap().falling += 1,
-                                DeathCauses::Suicide => self.current_match_data.kill_means.as_mut().unwrap().suicide += 1,
-                                DeathCauses::TargetLaser => self.current_match_data.kill_means.as_mut().unwrap().target_laser += 1,
-                                DeathCauses::TriggerHurt => self.current_match_data.kill_means.as_mut().unwrap().trigger_hurt += 1,
-                                DeathCauses::Nail => self.current_match_data.kill_means.as_mut().unwrap().nail += 1,
-                                DeathCauses::Chaingun => self.current_match_data.kill_means.as_mut().unwrap().chaingun += 1,
-                                DeathCauses::ProximityMine => self.current_match_data.kill_means.as_mut().unwrap().proximity_mine += 1,
-                                DeathCauses::Kamikaze => self.current_match_data.kill_means.as_mut().unwrap().kamikaze += 1,
-                                DeathCauses::Juiced => self.current_match_data.kill_means.as_mut().unwrap().juiced += 1,
-                                DeathCauses::Grapple => self.current_match_data.kill_means.as_mut().unwrap().grapple += 1
-                            }
+                            self.current_match_data.kill_means.as_mut().unwrap().increase_stat(death_cause);
                         } else {
                             return Err(LogParserError::RegexParserError);
                         }
@@ -498,9 +281,9 @@ impl ILogParser for ConcreteLogParser {
                 
                 if let Err(err) = self.parse_log_line(&line).await {
                     self.handle_callback(
-                CallbackType::Warning,
-                  Some(err), 
-                   Some(line)
+                        CallbackType::Warning,
+                        Some(err), 
+                        Some(line)
                     ).await;
                 }
             }
@@ -511,8 +294,8 @@ impl ILogParser for ConcreteLogParser {
 
             self.handle_callback(
                 CallbackType::Success,
-                  None,
-                   Some(stringfied_json.clone())
+                None,
+                Some(stringfied_json.clone())
              ).await;
 
             return Ok(stringfied_json);
