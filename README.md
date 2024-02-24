@@ -18,7 +18,7 @@ Add this crate as a dependency in your Rust App:
 
 This Lib has been developed thinking to present Author Clean Code Skills:
 
-- **Dependency Inversion Principle:** declaring an abstract interface which depends by business core. Develop a Concrete Class dependent by interface only. Injects Concrete Class into a Extern Crate Public Service Class.
+- **Dependency Inversion Principle:** declaring an abstract interface which depends on business core only. Develop a Concrete Class which dependends on interface only. Injects Concrete Class into a Extern Crate Public Service Class.
 
 - **Static Config File:** Some configurations instead being hard coded in source code are configured as a .json file present at STATIC_CONFIG.json file. Some of those configs are: regex patterns applied for log matching, error messages, key words used in Log file...
 
